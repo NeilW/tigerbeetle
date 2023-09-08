@@ -229,12 +229,9 @@ pub fn parse_args(allocator: std.mem.Allocator) !Command {
         },
         .start => |start| {
             const groove_config = StateMachine.Forest.groove_config;
-            const AccountsValuesCache =
-                groove_config.accounts_mutable.ObjectTree.TableMutable.ValuesCache;
-            const TransfersValuesCache =
-                groove_config.transfers.ObjectTree.TableMutable.ValuesCache;
-            const PostedValuesCache =
-                groove_config.posted.ObjectTree.TableMutable.ValuesCache;
+            const AccountsValuesCache = groove_config.accounts_mutable.ObjectsCache.Cache;
+            const TransfersValuesCache = groove_config.transfers.ObjectsCache.Cache;
+            const PostedValuesCache = groove_config.posted.ObjectsCache.Cache;
 
             const addresses = parse_addresses(allocator, start.addresses);
 
