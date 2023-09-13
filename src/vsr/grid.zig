@@ -11,7 +11,7 @@ const schema = @import("../lsm/schema.zig");
 const SuperBlockType = vsr.SuperBlockType;
 const FIFO = @import("../fifo.zig").FIFO;
 const IOPS = @import("../iops.zig").IOPS;
-const SetAssociativeCache = @import("../lsm/set_associative_cache.zig").SetAssociativeCache;
+const SetAssociativeCacheType = @import("../lsm/set_associative_cache.zig").SetAssociativeCacheType;
 const stdx = @import("../stdx.zig");
 const BlockType = schema.BlockType;
 
@@ -147,7 +147,7 @@ pub fn GridType(comptime Storage: type) type {
 
         const set_associative_cache_ways = 16;
 
-        pub const Cache = SetAssociativeCache(
+        pub const Cache = SetAssociativeCacheType(
             u64,
             u64,
             cache_interface.address_from_address,

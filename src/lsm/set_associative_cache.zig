@@ -22,7 +22,7 @@ pub const Layout = struct {
 };
 
 /// Each Key is associated with a set of n consecutive ways (or slots) that may contain the Value.
-pub fn SetAssociativeCache(
+pub fn SetAssociativeCacheType(
     comptime Key: type,
     comptime Value: type,
     comptime key_from_value: fn (*const Value) callconv(.Inline) Key,
@@ -227,6 +227,7 @@ pub fn SetAssociativeCache(
         }
 
         /// Remove a key from the set associative cache if present.
+        /// Returns the removed value, if any.
         pub fn remove(self: *Self, key: Key) ?Value {
             const set = self.associate(key);
             const way = self.search(set, key) orelse return null;
@@ -413,7 +414,7 @@ fn set_associative_cache_test(
 
     const log = false;
 
-    const SAC = SetAssociativeCache(
+    const SAC = SetAssociativeCacheType(
         Key,
         Value,
         context.key_from_value,
@@ -799,7 +800,7 @@ fn search_tags_test(comptime Key: type, comptime Value: type, comptime layout: L
         }
     };
 
-    const SAC = SetAssociativeCache(
+    const SAC = SetAssociativeCacheType(
         Key,
         Value,
         context.key_from_value,

@@ -8,7 +8,6 @@ const allocator = fuzz.allocator;
 
 const TestTable = @import("cache_map.zig").TestTable;
 const TestCacheMap = @import("cache_map.zig").TestCacheMap;
-const CacheMap = @import("cache_map.zig").CacheMap;
 
 const log = std.log.scoped(.lsm_cache_map_fuzz);
 const Key = TestTable.Key;
@@ -77,9 +76,9 @@ const Environment = struct {
 
     pub fn apply(env: *Environment, fuzz_ops: []const FuzzOp) !void {
         // The cache_map should behave exactly like a hash map, with some exceptions:
-        // .compact() removes values added more than one .compact() ago.
-        // .scope_close(.discard) rolls back all operations done from the corresponding
-        //                       .scope_open()
+        // * .compact() removes values added more than one .compact() ago.
+        // * .scope_close(.discard) rolls back all operations done from the corresponding
+        //   .scope_open()
 
         for (fuzz_ops, 0..) |fuzz_op, fuzz_op_index| {
             log.debug("Running fuzz_ops[{}/{}] == {}", .{ fuzz_op_index, fuzz_ops.len, fuzz_op });
@@ -110,39 +109,37 @@ const Environment = struct {
                     if (model_value == null) {
                         assert(cache_map_value == null);
                     } else if (env.compacts >= 2 and model_value.?.op <= env.compacts - 2) {
-                        // .compact() support; if the entry has an op 2 or compacts ago, it doesn't
-                        // have to exist in the cache_map. It may still be served from the cache
-                        // layer, however.
+                        // .compact() support; if the entry has an op 2 or more compacts ago, it
+                        // doesn't have to exist in the cache_map. It may still be served from the
+                        // cache layer, however.
                         stdx.maybe(cache_map_value == null);
                     } else {
-                        assert(std.mem.eql(
-                            u8,
-                            std.mem.asBytes(&model_value.?.value),
-                            std.mem.asBytes(cache_map_value.?),
-                        ));
+                        assert(stdx.equal_bytes(Value, &model_value.?.value, cache_map_value.?));
                     }
                 },
-                .scope => |mode| {
-                    if (mode == .open) {
+                .scope => |mode| switch (mode) {
+                    .open => {
                         env.cache_map.scope_open();
                         env.scope_open = true;
 
                         // Copy env.model to env.scope_model, so we can easily revert later.
                         try copy_hash_map(&env.model, &env.scope_model);
-                    } else if (mode == .persist) {
+                    },
+                    .persist => {
                         env.cache_map.scope_close(.persist);
                         env.scope_open = false;
 
                         // To persist the scope, we don't need to do anything.
                         env.scope_model.clearRetainingCapacity();
-                    } else if (mode == .discard) {
+                    },
+                    .discard => {
                         env.cache_map.scope_close(.discard);
                         env.scope_open = false;
 
                         // To revert the scope, we can just overwrite model with scope_model.
                         try copy_hash_map(&env.scope_model, &env.model);
                         env.scope_model.clearRetainingCapacity();
-                    }
+                    },
                 },
             }
         }
@@ -171,11 +168,7 @@ const Environment = struct {
             // Get account from cache_map.
             const cache_map_value = env.cache_map.get(kv.key_ptr.*);
 
-            assert(std.mem.eql(
-                u8,
-                std.mem.asBytes(&kv.value_ptr.value),
-                std.mem.asBytes(cache_map_value.?),
-            ));
+            assert(stdx.equal_bytes(Value, &kv.value_ptr.value, cache_map_value.?));
 
             checked += 1;
         }
@@ -192,11 +185,7 @@ const Environment = struct {
 
             const model_val = env.model.get(TestTable.key_from_value(cache_value));
 
-            assert(std.mem.eql(
-                u8,
-                std.mem.asBytes(cache_value),
-                std.mem.asBytes(&model_val.?.value),
-            ));
+            assert(stdx.equal_bytes(Value, cache_value, &model_val.?.value));
         }
 
         // The stash can have stale values, but in that case the real value _must_ exist
@@ -210,11 +199,7 @@ const Environment = struct {
             // Even if the stash has stale values, the key must still exist in the model.
             assert(model_value != null);
 
-            const stash_value_equal = std.mem.eql(
-                u8,
-                std.mem.asBytes(stash_value),
-                std.mem.asBytes(&model_value.?.value),
-            );
+            const stash_value_equal = stdx.equal_bytes(Value, stash_value, &model_value.?.value);
 
             if (!stash_value_equal) {
                 // We verified all cache entries were equal and correct above, so if it exists,
@@ -232,11 +217,7 @@ const Environment = struct {
             // Even if the stash has stale values, the key must still exist in the model.
             assert(model_value != null);
 
-            const stash_value_equal = std.mem.eql(
-                u8,
-                std.mem.asBytes(stash_value),
-                std.mem.asBytes(&model_value.?.value),
-            );
+            const stash_value_equal = stdx.equal_bytes(Value, stash_value, &model_value.?.value);
 
             if (!stash_value_equal) {
                 // Same logic as when map_1 checks the cache above.

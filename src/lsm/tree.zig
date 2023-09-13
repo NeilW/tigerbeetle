@@ -229,23 +229,6 @@ pub fn TreeType(comptime TreeTable: type, comptime Storage: type) type {
             tree.table_mutable.deinit(allocator);
         }
 
-        /// Open a new scope. Within a scope, changes can be persisted
-        /// or discarded. Only one scope can be active at a time.
-        pub fn scope_open(tree: *Tree) void {
-            assert(tree.active_scope == null);
-            tree.active_scope = tree.table_mutable.value_context;
-        }
-
-        pub fn scope_close(tree: *Tree, data: ScopeCloseMode) void {
-            assert(tree.active_scope != null);
-
-            if (data == .discard) {
-                tree.table_mutable.value_context = tree.active_scope.?;
-            }
-
-            tree.active_scope = null;
-        }
-
         pub fn reset(tree: *Tree) void {
             tree.table_mutable.reset();
             tree.table_immutable.reset();
@@ -264,6 +247,24 @@ pub fn TreeType(comptime TreeTable: type, comptime Storage: type) type {
                 .compaction_table_immutable = tree.compaction_table_immutable,
                 .compaction_table = tree.compaction_table,
             };
+        }
+
+        /// Open a new scope. Within a scope, changes can be persisted
+        /// or discarded. Only one scope can be active at a time.
+        pub fn scope_open(tree: *Tree) void {
+            assert(tree.active_scope == null);
+            tree.active_scope = tree.table_mutable.value_context;
+        }
+
+        pub fn scope_close(tree: *Tree, data: ScopeCloseMode) void {
+            assert(tree.active_scope != null);
+            assert(tree.active_scope.?.count <= tree.table_mutable.value_context.count);
+
+            if (data == .discard) {
+                tree.table_mutable.value_context = tree.active_scope.?;
+            }
+
+            tree.active_scope = null;
         }
 
         pub fn put(tree: *Tree, value: *const Value) void {
@@ -728,7 +729,7 @@ pub fn TreeType(comptime TreeTable: type, comptime Storage: type) type {
                 //   compactions would actually perform different compactions than before,
                 //   causing the storage state of the replica to diverge from the cluster.
                 //   See also: compaction_op_min().
-                // Immutable table preperation is handled by compact_end(), even when compaction
+                // Immutable table preparation is handled by compact_end(), even when compaction
                 // is skipped.
                 tree.compaction_phase = .skipped;
 

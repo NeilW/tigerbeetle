@@ -58,9 +58,10 @@ pub fn TableMemoryType(comptime Table: type) type {
 
         pub fn reset(table: *TableMemory) void {
             var values_max = table.values.ptr[0..value_count_max];
-            var mutability: Mutability = if (table.mutability == .immutable) .{ .immutable = .{
-                .flushed = true,
-            } } else .mutable;
+            var mutability: Mutability = switch (table.mutability) {
+                .immutable => .{ .immutable = .{} },
+                .mutable => .mutable,
+            };
 
             table.* = .{
                 .values = values_max,
@@ -70,7 +71,7 @@ pub fn TableMemoryType(comptime Table: type) type {
             };
         }
 
-        pub fn count(table: *TableMemory) usize {
+        pub fn count(table: *const TableMemory) usize {
             return table.value_context.count;
         }
 
@@ -89,8 +90,7 @@ pub fn TableMemoryType(comptime Table: type) type {
             table.values[table.value_context.count] = value.*;
             table.value_context.count += 1;
 
-            table.value_context.sorted = table.value_context.sorted and
-                (put_order == .eq or put_order == .lt);
+            table.value_context.sorted = table.value_context.sorted and put_order != .gt;
         }
 
         /// This function is intended to never be called by regular code. It only
@@ -98,6 +98,7 @@ pub fn TableMemoryType(comptime Table: type) type {
         /// code must rely on the Groove cache for lookups.
         pub fn get(table: *TableMemory, key: Key) ?*const Value {
             assert(constants.verify);
+            assert(table.value_context.count <= value_count_max);
 
             // Just sort all the keys here, for simplicity.
             if (!table.value_context.sorted) {
