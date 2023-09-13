@@ -162,12 +162,15 @@ pub fn CacheMapType(
             self.last_upsert_was_update_with_eviction = false;
             _ = self.cache.upsert_index(value, upsert_on_eviction);
 
+            // Here, and in upsert_on_eviction / remove, putAssumeCapacity vs
+            // getOrPutAssumeCapacity is critical. Since we use HashMaps with no Value,
+            // putAssumeCapacity _will not_ clobber the existing value.
             if (self.scope_is_active and !self.last_upsert_was_update_with_eviction) {
                 if (self.map_1.getKey(value.*)) |stash_value| {
-                    // Scope Map: Case 2a.
+                    // Scope Map: Case 3a.
                     self.scope_map.putAssumeCapacity(stash_value, {});
                 } else {
-                    // Scope Map: Case 2b.
+                    // Scope Map: Case 3b.
                     self.scope_map.putAssumeCapacity(
                         tombstone_from_key(key_from_value(value)),
                         {},
