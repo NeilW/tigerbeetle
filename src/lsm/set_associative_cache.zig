@@ -277,13 +277,13 @@ pub fn SetAssociativeCacheType(
         /// Upsert a value, evicting an older entry if needed. The evicted value is made available
         /// to the on_eviction callback, and is only valid for the lifetime of the callback.
         /// Return the index at which the value was inserted.
-        pub fn upsert_index(self: *Self, value: *const Value, on_eviction: *const fn (*Self, *const Value, bool) void) usize {
+        pub fn upsert_index(self: *Self, value: *const Value, on_eviction: *const fn (*Self, *const Value, UpdateOrInsert) void) usize {
             const key = key_from_value(value);
             const set = self.associate(key);
             if (self.search(set, key)) |way| {
                 // Overwrite the old entry for this key.
                 self.counts.set(set.offset + way, 1);
-                on_eviction(self, &set.values[way], true);
+                on_eviction(self, &set.values[way], .update);
                 set.values[way] = value.*;
                 return set.offset + way;
             }
@@ -311,7 +311,7 @@ pub fn SetAssociativeCacheType(
                 self.counts.set(set.offset + way, count);
                 if (count == 0) {
                     // Way has become free.
-                    on_eviction(self, &set.values[way], false);
+                    on_eviction(self, &set.values[way], .insert);
                     break;
                 }
             } else {
@@ -394,13 +394,15 @@ pub fn SetAssociativeCacheType(
         }
 
         // No-op eviction handler for upsert_index.
-        pub fn noop_on_eviction(cache: *Self, value: *const Value, updated: bool) void {
+        pub fn noop_on_eviction(cache: *Self, value: *const Value, updated: UpdateOrInsert) void {
             _ = cache;
             _ = value;
             _ = updated;
         }
     };
 }
+
+pub const UpdateOrInsert = enum { update, insert };
 
 fn set_associative_cache_test(
     comptime Key: type,

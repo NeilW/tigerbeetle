@@ -6,6 +6,7 @@ const assert = std.debug.assert;
 const maybe = stdx.maybe;
 
 const SetAssociativeCacheType = @import("set_associative_cache.zig").SetAssociativeCacheType;
+const UpdateOrInsert = @import("set_associative_cache.zig").UpdateOrInsert;
 const ScopeCloseMode = @import("tree.zig").ScopeCloseMode;
 
 /// A CacheMap is a hybrid between our SetAssociativeCache and a HashMap. The SetAssociativeCache
@@ -94,7 +95,7 @@ pub fn CacheMapType(
         scope_is_active: bool = false,
         scope_map: Map,
 
-        last_upsert_was_update_with_eviction: bool = undefined,
+        last_upsert_was_update_with_eviction: ?bool = null,
         options: Options,
 
         pub fn init(allocator: std.mem.Allocator, options: Options) !Self {
@@ -143,7 +144,7 @@ pub fn CacheMapType(
             self.map_2.clearRetainingCapacity();
             self.scope_map.clearRetainingCapacity();
             self.scope_is_active = false;
-            self.last_upsert_was_update_with_eviction = undefined;
+            self.last_upsert_was_update_with_eviction = null;
         }
 
         pub fn has(self: *Self, key: Key) bool {
@@ -165,7 +166,7 @@ pub fn CacheMapType(
             // Here, and in upsert_on_eviction / remove, putAssumeCapacity vs
             // getOrPutAssumeCapacity is critical. Since we use HashMaps with no Value,
             // putAssumeCapacity _will not_ clobber the existing value.
-            if (self.scope_is_active and !self.last_upsert_was_update_with_eviction) {
+            if (self.scope_is_active and !self.last_upsert_was_update_with_eviction.?) {
                 if (self.map_1.getKey(value.*)) |stash_value| {
                     // Scope Map: Case 3a.
                     self.scope_map.putAssumeCapacity(stash_value, {});
@@ -177,27 +178,31 @@ pub fn CacheMapType(
                     );
                 }
             }
+            self.last_upsert_was_update_with_eviction = null;
         }
 
-        fn upsert_on_eviction(cache: *Cache, value: *const Value, updated: bool) void {
+        fn upsert_on_eviction(cache: *Cache, value: *const Value, updated: UpdateOrInsert) void {
             var self = @fieldParentPtr(Self, "cache", cache);
-            if (updated) {
-                // Scope Map: Case 1.
-                self.last_upsert_was_update_with_eviction = true;
-                if (self.scope_is_active) {
-                    self.scope_map.putAssumeCapacity(value.*, {});
-                }
-            } else {
-                if (self.scope_is_active) {
-                    // Scope Map: Case 3.
-                    self.scope_map.putAssumeCapacity(value.*, {});
+            switch (updated) {
+                .update => {
+                    // Scope Map: Case 1.
+                    self.last_upsert_was_update_with_eviction.? = true;
+                    if (self.scope_is_active) {
+                        self.scope_map.putAssumeCapacity(value.*, {});
+                    }
+                },
+                .insert => {
+                    if (self.scope_is_active) {
+                        // Scope Map: Case 3.
+                        self.scope_map.putAssumeCapacity(value.*, {});
 
-                    const gop = self.map_1.getOrPutAssumeCapacity(value.*);
-                    gop.key_ptr.* = value.*;
-                } else {
-                    const gop = self.map_1.getOrPutAssumeCapacity(value.*);
-                    gop.key_ptr.* = value.*;
-                }
+                        const gop = self.map_1.getOrPutAssumeCapacity(value.*);
+                        gop.key_ptr.* = value.*;
+                    } else {
+                        const gop = self.map_1.getOrPutAssumeCapacity(value.*);
+                        gop.key_ptr.* = value.*;
+                    }
+                },
             }
         }
 
