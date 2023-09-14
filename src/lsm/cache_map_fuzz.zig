@@ -70,7 +70,7 @@ const Environment = struct {
         dst.clearRetainingCapacity();
         var it = src.iterator();
         while (it.next()) |kv| {
-            try dst.put(kv.key_ptr.*, kv.value_ptr.*);
+            try dst.putNoClobber(kv.key_ptr.*, kv.value_ptr.*);
         }
     }
 

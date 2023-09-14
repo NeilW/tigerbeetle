@@ -132,13 +132,16 @@ pub fn CacheMapType(
         }
 
         pub fn deinit(self: *Self, allocator: std.mem.Allocator) void {
-            self.cache.deinit(allocator);
-            self.map_1.deinit(allocator);
-            self.map_2.deinit(allocator);
             self.scope_map.deinit(allocator);
+            self.map_2.deinit(allocator);
+            self.map_1.deinit(allocator);
+            self.cache.deinit(allocator);
         }
 
         pub fn reset(self: *Self) void {
+            assert(!self.scope_is_active);
+            assert(self.scope_map.count() == 0);
+
             self.cache.reset();
             self.map_1.clearRetainingCapacity();
             self.map_2.clearRetainingCapacity();
@@ -183,26 +186,16 @@ pub fn CacheMapType(
 
         fn upsert_on_eviction(cache: *Cache, value: *const Value, updated: UpdateOrInsert) void {
             var self = @fieldParentPtr(Self, "cache", cache);
-            switch (updated) {
-                .update => {
-                    // Scope Map: Case 1.
-                    self.last_upsert_was_update_with_eviction.? = true;
-                    if (self.scope_is_active) {
-                        self.scope_map.putAssumeCapacity(value.*, {});
-                    }
-                },
-                .insert => {
-                    if (self.scope_is_active) {
-                        // Scope Map: Case 3.
-                        self.scope_map.putAssumeCapacity(value.*, {});
 
-                        const gop = self.map_1.getOrPutAssumeCapacity(value.*);
-                        gop.key_ptr.* = value.*;
-                    } else {
-                        const gop = self.map_1.getOrPutAssumeCapacity(value.*);
-                        gop.key_ptr.* = value.*;
-                    }
-                },
+            self.last_upsert_was_update_with_eviction.? = updated == .update;
+
+            if (updated == .insert) {
+                const gop = self.map_1.getOrPutAssumeCapacity(value.*);
+                gop.key_ptr.* = value.*;
+            }
+
+            if (self.scope_is_active) {
+                self.scope_map.putAssumeCapacity(value.*, {});
             }
         }
 

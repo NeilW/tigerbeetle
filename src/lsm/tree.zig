@@ -256,11 +256,11 @@ pub fn TreeType(comptime TreeTable: type, comptime Storage: type) type {
             tree.active_scope = tree.table_mutable.value_context;
         }
 
-        pub fn scope_close(tree: *Tree, data: ScopeCloseMode) void {
+        pub fn scope_close(tree: *Tree, mode: ScopeCloseMode) void {
             assert(tree.active_scope != null);
             assert(tree.active_scope.?.count <= tree.table_mutable.value_context.count);
 
-            if (data == .discard) {
+            if (mode == .discard) {
                 tree.table_mutable.value_context = tree.active_scope.?;
             }
 
