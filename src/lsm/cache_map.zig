@@ -150,13 +150,13 @@ pub fn CacheMapType(
             self.last_upsert_was_update_with_eviction = null;
         }
 
-        pub fn has(self: *Self, key: Key) bool {
+        pub fn has(self: *const Self, key: Key) bool {
             return self.cache.get_index(key) != null or
                 self.map_1.getKeyPtr(tombstone_from_key(key)) != null or
                 self.map_2.getKeyPtr(tombstone_from_key(key)) != null;
         }
 
-        pub fn get(self: *Self, key: Key) ?*Value {
+        pub fn get(self: *const Self, key: Key) ?*Value {
             return self.cache.get(key) orelse
                 self.map_1.getKeyPtr(tombstone_from_key(key)) orelse
                 self.map_2.getKeyPtr(tombstone_from_key(key));

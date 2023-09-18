@@ -10,8 +10,6 @@ const constants = @import("../constants.zig");
 const div_ceil = @import("../stdx.zig").div_ceil;
 const verify = constants.verify;
 
-const tracer = @import("../tracer.zig");
-
 pub const Layout = struct {
     ways: u64 = 16,
     tag_bits: u64 = 8,
@@ -95,9 +93,6 @@ pub fn SetAssociativeCacheType(
 
         name: []const u8,
         sets: u64,
-
-        hits: u64 = 0,
-        misses: u64 = 0,
 
         /// A short, partial hash of a Key, corresponding to a Value.
         /// Because the tag is small, collisions are possible:
@@ -200,28 +195,18 @@ pub fn SetAssociativeCacheType(
             @memset(self.clocks.words, 0);
         }
 
-        pub fn get_index(self: *Self, key: Key) ?usize {
+        pub fn get_index(self: *const Self, key: Key) ?usize {
             const set = self.associate(key);
             if (self.search(set, key)) |way| {
-                self.hits += 1;
-                tracer.plot(
-                    .{ .cache_hits = .{ .cache_name = self.name } },
-                    @as(f64, @floatFromInt(self.hits)),
-                );
                 const count = self.counts.get(set.offset + way);
                 self.counts.set(set.offset + way, count +| 1);
                 return set.offset + way;
             } else {
-                self.misses += 1;
-                tracer.plot(
-                    .{ .cache_misses = .{ .cache_name = self.name } },
-                    @as(f64, @floatFromInt(self.misses)),
-                );
                 return null;
             }
         }
 
-        pub fn get(self: *Self, key: Key) ?*align(value_alignment) Value {
+        pub fn get(self: *const Self, key: Key) ?*align(value_alignment) Value {
             const index = self.get_index(key) orelse return null;
             return @alignCast(&self.values[index]);
         }
@@ -362,7 +347,7 @@ pub fn SetAssociativeCacheType(
             }
         };
 
-        inline fn associate(self: *Self, key: Key) Set {
+        inline fn associate(self: *const Self, key: Key) Set {
             const entropy = hash(key);
 
             const tag = @as(Tag, @truncate(entropy >> math.log2_int(u64, self.sets)));

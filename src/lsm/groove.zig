@@ -484,7 +484,7 @@ pub fn GrooveType(
         ///
         /// Invariant: if something is in the mutable or immutable table, it _must_ exist in our
         /// object cache.
-        objects_cache: *ObjectsCache,
+        objects_cache: ObjectsCache,
 
         pub const Options = struct {
             /// The maximum number of objects that might be prefetched by a batch.
@@ -502,10 +502,7 @@ pub fn GrooveType(
             grid: *Grid,
             options: Options,
         ) !Groove {
-            var objects_cache = try allocator.create(ObjectsCache);
-            errdefer allocator.destroy(objects_cache);
-
-            objects_cache.* = try ObjectsCache.init(allocator, .{
+            var objects_cache = try ObjectsCache.init(allocator, .{
                 .cache_value_count_max = options.cache_entries_max,
 
                 // In the worst case, each Map must be able to store the value_count_max (to
@@ -597,7 +594,6 @@ pub fn GrooveType(
 
             groove.prefetch_keys.deinit(allocator);
             groove.objects_cache.deinit(allocator);
-            allocator.destroy(groove.objects_cache);
 
             groove.* = undefined;
         }
