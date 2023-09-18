@@ -435,14 +435,10 @@ const Environment = struct {
                         // we manually call groove.objects_cache.compact() every
                         // `map_value_count_max` operations here. This is specific to this fuzzing
                         // code.
-                        const groove_immutable_map_value_count_max =
-                            env.forest.grooves.accounts_immutable.objects_cache.options.map_value_count_max;
-                        const groove_mutable_map_value_count_max =
-                            env.forest.grooves.accounts_mutable.objects_cache.options.map_value_count_max;
-                        assert(groove_immutable_map_value_count_max ==
-                            groove_mutable_map_value_count_max);
+                        const groove_map_value_count_max =
+                            env.forest.grooves.accounts.objects_cache.options.map_value_count_max;
 
-                        if (log_index % groove_immutable_map_value_count_max == 0) {
+                        if (log_index % groove_map_value_count_max == 0) {
                             env.forest.grooves.accounts_immutable.objects_cache.compact();
                             env.forest.grooves.accounts_mutable.objects_cache.compact();
                         }
