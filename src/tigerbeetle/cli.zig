@@ -229,7 +229,7 @@ pub fn parse_args(allocator: std.mem.Allocator) !Command {
         },
         .start => |start| {
             const groove_config = StateMachine.Forest.groove_config;
-            const AccountsValuesCache = groove_config.accounts_mutable.ObjectsCache.Cache;
+            const AccountsValuesCache = groove_config.accounts.ObjectsCache.Cache;
             const TransfersValuesCache = groove_config.transfers.ObjectsCache.Cache;
             const PostedValuesCache = groove_config.posted.ObjectsCache.Cache;
 
@@ -341,5 +341,6 @@ fn parse_cache_size_to_count(
 
     const result = @as(u32, @intCast(count_rounded)); // TODO: better error message on overflow
     assert(@as(u64, result) * @sizeOf(T) <= size.bytes);
+
     return result;
 }
