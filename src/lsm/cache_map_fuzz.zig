@@ -114,7 +114,7 @@ const Environment = struct {
                         // cache layer, however.
                         stdx.maybe(cache_map_value == null);
                     } else {
-                        assert(stdx.equal_bytes(Value, &model_value.?.value, cache_map_value.?));
+                        assert(std.meta.eql(model_value.?.value, cache_map_value.?.*));
                     }
                 },
                 .scope => |mode| switch (mode) {
@@ -168,7 +168,7 @@ const Environment = struct {
             // Get account from cache_map.
             const cache_map_value = env.cache_map.get(kv.key_ptr.*);
 
-            assert(stdx.equal_bytes(Value, &kv.value_ptr.value, cache_map_value.?));
+            assert(std.meta.eql(kv.value_ptr.value, cache_map_value.?.*));
 
             checked += 1;
         }
@@ -185,7 +185,7 @@ const Environment = struct {
 
             const model_val = env.model.get(TestTable.key_from_value(cache_value));
 
-            assert(stdx.equal_bytes(Value, cache_value, &model_val.?.value));
+            assert(std.meta.eql(cache_value.*, model_val.?.value));
         }
 
         // The stash can have stale values, but in that case the real value _must_ exist
@@ -199,7 +199,7 @@ const Environment = struct {
             // Even if the stash has stale values, the key must still exist in the model.
             assert(model_value != null);
 
-            const stash_value_equal = stdx.equal_bytes(Value, stash_value, &model_value.?.value);
+            const stash_value_equal = std.meta.eql(stash_value.*, model_value.?.value);
 
             if (!stash_value_equal) {
                 // We verified all cache entries were equal and correct above, so if it exists,
@@ -217,7 +217,7 @@ const Environment = struct {
             // Even if the stash has stale values, the key must still exist in the model.
             assert(model_value != null);
 
-            const stash_value_equal = stdx.equal_bytes(Value, stash_value, &model_value.?.value);
+            const stash_value_equal = std.meta.eql(stash_value.*, model_value.?.value);
 
             if (!stash_value_equal) {
                 // Same logic as when map_1 checks the cache above.
@@ -238,10 +238,10 @@ fn random_id(random: std.rand.Random, comptime Int: type) Int {
     // We have two opposing desires for random ids:
     const avg_int: Int = if (random.boolean())
         // 1. We want to cause many collisions.
-        100 * constants.lsm_growth_factor * 2048
+        constants.lsm_growth_factor * 2048
     else
         // 2. We want to generate enough ids that the cache can't hold them all.
-        constants.lsm_growth_factor * 2048;
+        100 * constants.lsm_growth_factor * 2048;
     return fuzz.random_int_exponential(random, Int, avg_int);
 }
 

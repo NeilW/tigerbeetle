@@ -275,38 +275,6 @@ pub fn CompactionType(
             }
         }
 
-        // TODO: We need to reimplement the .secondary_index optimization for sort here.
-        fn fill_immutable_values(compaction: *Compaction) u32 {
-            var immutable_values_for_compaction =
-                Table.data_block_values(compaction.data_blocks[0]);
-            var table_immutable_values = compaction.context.table_info_a.immutable;
-            var input_index: u32 = 0;
-            var output_index: u32 = 0;
-
-            while (input_index < table_immutable_values.len) {
-                if (output_index > 0 and compare_keys(
-                    key_from_value(&immutable_values_for_compaction[output_index - 1]),
-                    key_from_value(&table_immutable_values[input_index]),
-                ) == .eq) {
-                    output_index -= 1;
-                }
-
-                immutable_values_for_compaction[output_index] =
-                    table_immutable_values[input_index];
-
-                if (output_index == immutable_values_for_compaction.len - 1) {
-                    break;
-                }
-
-                input_index += 1;
-                output_index += 1;
-            }
-            compaction.context.table_info_a.immutable =
-                compaction.context.table_info_a.immutable[input_index..];
-
-            return output_index;
-        }
-
         /// The compaction's input tables are:
         /// * `context.table_a_info` (which is `.immutable` when `context_level_b` is 0), and
         /// * Any level_b tables visible to `context.op_min` within `context.range_b`.
@@ -484,10 +452,11 @@ pub fn CompactionType(
                 // TODO: Currently, this copies the values to compaction.data_blocks[0], but in
                 // future we can make it use a KWayMergeIterator.
                 if (compaction.context.table_info_a.immutable.len > 0) {
-                    const filled = compaction.fill_immutable_values();
+                    var values = Table.data_block_values(compaction.data_blocks[0]);
+                    const filled = compaction.fill_immutable_values(values);
 
                     // The immutable table is always considered `table a`, which maps to 0.
-                    compaction.values_in[0] = Table.data_block_values(compaction.data_blocks[0])[0..filled];
+                    compaction.values_in[0] = values[0..filled];
                 }
 
                 compaction.iterator_check_finish(input_level);
@@ -501,6 +470,36 @@ pub fn CompactionType(
                     }),
                 }
             }
+        }
+
+        // TODO: We need to reimplement the .secondary_index optimization for sort here.
+        fn fill_immutable_values(compaction: *Compaction, output: []Value) u32 {
+            var table_immutable_values = compaction.context.table_info_a.immutable;
+            var input_index: u32 = 0;
+            var output_index: u32 = 0;
+
+            while (input_index < table_immutable_values.len) {
+                if (output_index > 0 and compare_keys(
+                    key_from_value(&output[output_index - 1]),
+                    key_from_value(&table_immutable_values[input_index]),
+                ) == .eq) {
+                    output_index -= 1;
+                }
+
+                output[output_index] =
+                    table_immutable_values[input_index];
+
+                if (output_index == output.len - 1) {
+                    break;
+                }
+
+                input_index += 1;
+                output_index += 1;
+            }
+            compaction.context.table_info_a.immutable =
+                compaction.context.table_info_a.immutable[input_index..];
+
+            return output_index;
         }
 
         fn on_index_block(iterator_b: *LevelTableValueBlockIterator) void {
