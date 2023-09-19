@@ -136,7 +136,12 @@ pub fn TableMemoryType(comptime Table: type) type {
             // Sort all the values. In future, this will be done incrementally, and use
             // k_way_merge, but for now the performance regression was too bad.
             if (!table.value_context.sorted) {
-                std.mem.sort(Value, table.values_used(), {}, sort_values_by_key_in_ascending_order);
+                std.mem.sort(
+                    Value,
+                    table.values_used(),
+                    {},
+                    sort_values_by_key_in_ascending_order,
+                );
                 table.value_context.sorted = true;
             }
 
