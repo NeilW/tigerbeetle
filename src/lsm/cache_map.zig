@@ -9,16 +9,21 @@ const SetAssociativeCacheType = @import("set_associative_cache.zig").SetAssociat
 const UpdateOrInsert = @import("set_associative_cache.zig").UpdateOrInsert;
 const ScopeCloseMode = @import("tree.zig").ScopeCloseMode;
 
-/// A CacheMap is a hybrid between our SetAssociativeCache and a HashMap. The SetAssociativeCache
-/// sits on top and absorbs the majority of get / put requests. Below that, lives a HashMap.
-/// Should an insert() cause an eviction (which can happen either because the Key is the same,
-/// or because our Way is full), the evicted value is caught and put in the HashMap.
+/// A CacheMap is a hybrid between our SetAssociativeCache and a HashMap (stash). The
+/// SetAssociativeCache sits on top and absorbs the majority of get / put requests. Below that,
+/// lives a HashMap. Should an insert() cause an eviction (which can happen either because the Key
+/// is the same, or because our Way is full), the evicted value is caught and put in the stash.
+///
+/// This allows for a potentially huge cache, with all the advantages of CLOCK Nth-Chance, while
+/// still being able to give hard guarantees that values will be present. The stash will often be
+/// significantly smaller, as the amount of values we're required to guarantee is less than what
+/// we'd like to optimistically keep in memory.
 ///
 /// Within our LSM, it's the backing for the combined Groove prefetch + cache. The cache part
-/// fills the use case of an object cache, while the HashMap ensures that values put in for
-/// prefetch will exist as long as required.
+/// fills the use case of an object cache, while the stash ensures that values put in for prefetch
+/// will exist as long as required.
 ///
-/// Cache invalidation for the HashMap is handled by `compact`.
+/// Cache invalidation for the stash is handled by `compact`.
 pub fn CacheMapType(
     comptime Key: type,
     comptime Value: type,
