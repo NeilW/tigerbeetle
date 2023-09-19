@@ -811,7 +811,8 @@ pub fn TreeType(comptime TreeTable: type, comptime Storage: type) type {
             // Do not start compaction if the immutable table does not require compaction.
             if (tree.table_immutable.mutability.immutable.flushed) return;
 
-            const values_count = tree.table_immutable.values.len;
+            const values = tree.table_immutable.values_used();
+            const values_count = values.len;
             assert(values_count > 0);
 
             const level_b: u8 = 0;
@@ -838,7 +839,7 @@ pub fn TreeType(comptime TreeTable: type, comptime Storage: type) type {
                 .grid = tree.grid,
                 .tree = tree,
                 .op_min = op_min,
-                .table_info_a = .{ .immutable = tree.table_immutable.values },
+                .table_info_a = .{ .immutable = values },
                 .level_b = level_b,
                 .range_b = range_b,
                 .callback = compact_table_finish,
