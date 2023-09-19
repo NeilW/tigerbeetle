@@ -452,11 +452,12 @@ pub fn CompactionType(
                 // TODO: Currently, this copies the values to compaction.data_blocks[0], but in
                 // future we can make it use a KWayMergeIterator.
                 if (compaction.context.table_info_a.immutable.len > 0) {
-                    var values = Table.data_block_values(compaction.data_blocks[0]);
-                    const filled = compaction.fill_immutable_values(values);
+                    var target = Table.data_block_values(compaction.data_blocks[0]);
+
+                    const filled = compaction.fill_immutable_values(target);
 
                     // The immutable table is always considered `table a`, which maps to 0.
-                    compaction.values_in[0] = values[0..filled];
+                    compaction.values_in[0] = target[0..filled];
                 }
 
                 compaction.iterator_check_finish(input_level);
@@ -473,33 +474,49 @@ pub fn CompactionType(
         }
 
         // TODO: We need to reimplement the .secondary_index optimization for sort here.
-        fn fill_immutable_values(compaction: *Compaction, output: []Value) u32 {
-            var table_immutable_values = compaction.context.table_info_a.immutable;
-            var input_index: u32 = 0;
-            var output_index: u32 = 0;
+        /// Copies values to `target` from our immutable table input, taking the last
+        /// matching value to resolve duplicates, and updating the immutable table slice.
+        fn fill_immutable_values(compaction: *Compaction, target: []Value) u32 {
+            var source_index: u32 = 0;
+            var target_index: u32 = 0;
+            var source = compaction.context.table_info_a.immutable;
 
-            while (input_index < table_immutable_values.len) {
-                if (output_index > 0 and compare_keys(
-                    key_from_value(&output[output_index - 1]),
-                    key_from_value(&table_immutable_values[input_index]),
+            if (constants.verify) {
+                // Our inputs can have duplicates, but must still be increasing.
+                for (source[0 .. source.len - 1], source[1..source.len]) |*value, *value_next| {
+                    assert(compare_keys(key_from_value(value_next), key_from_value(value)) != .lt);
+                }
+            }
+
+            while (source_index < source.len) {
+                if (target_index > 0 and compare_keys(
+                    key_from_value(&target[target_index - 1]),
+                    key_from_value(&source[source_index]),
                 ) == .eq) {
-                    output_index -= 1;
+                    target_index -= 1;
                 }
 
-                output[output_index] =
-                    table_immutable_values[input_index];
+                target[target_index] =
+                    source[source_index];
 
-                if (output_index == output.len - 1) {
+                if (target_index == target.len - 1) {
                     break;
                 }
 
-                input_index += 1;
-                output_index += 1;
+                source_index += 1;
+                target_index += 1;
             }
             compaction.context.table_info_a.immutable =
-                compaction.context.table_info_a.immutable[input_index..];
+                compaction.context.table_info_a.immutable[source_index..];
 
-            return output_index;
+            if (constants.verify) {
+                // Our output must be strictly increasing.
+                for (target[0 .. target_index - 1], target[1..target_index]) |*value, *value_next| {
+                    assert(compare_keys(key_from_value(value_next), key_from_value(value)) == .gt);
+                }
+            }
+
+            return target_index;
         }
 
         fn on_index_block(iterator_b: *LevelTableValueBlockIterator) void {
