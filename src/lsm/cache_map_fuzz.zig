@@ -152,10 +152,10 @@ const Environment = struct {
     /// We verify the negative space by iterating over the cache_map's cache and maps directly,
     /// ensuring that:
     /// 1. The values in the cache all exist and are equal in the model.
-    /// 2. The values in map_1 either exists and are equal in the model, or there's the same key
+    /// 2. The values in stash_1 either exists and are equal in the model, or there's the same key
     ///    in the cache.
-    /// 3. The values in map_2 either exists and are equal in the model, or there's the same key
-    ///    in map_1 or the cache.
+    /// 3. The values in stash_2 either exists and are equal in the model, or there's the same key
+    ///    in stash_1 or the cache.
     pub fn verify(env: *Environment) void {
         var checked: u32 = 0;
         var it = env.model.iterator();
@@ -191,7 +191,7 @@ const Environment = struct {
         // The stash can have stale values, but in that case the real value _must_ exist
         // in the cache. It should be impossible for the stash to have a value that isn't in the
         // model, since cache_map.remove() removes from both the cache and stash.
-        var stash_iterator_1 = env.cache_map.map_1.keyIterator();
+        var stash_iterator_1 = env.cache_map.stash_1.keyIterator();
         while (stash_iterator_1.next()) |stash_value| {
             // Get account from model.
             const model_value = env.model.getPtr(TestTable.key_from_value(stash_value));
@@ -209,7 +209,7 @@ const Environment = struct {
             }
         }
 
-        var stash_iterator_2 = env.cache_map.map_2.keyIterator();
+        var stash_iterator_2 = env.cache_map.stash_2.keyIterator();
         while (stash_iterator_2.next()) |stash_value| {
             // Get account from model.
             const model_value = env.model.getPtr(TestTable.key_from_value(stash_value));
@@ -220,10 +220,10 @@ const Environment = struct {
             const stash_value_equal = std.meta.eql(stash_value.*, model_value.?.value);
 
             if (!stash_value_equal) {
-                // Same logic as when map_1 checks the cache above.
+                // Same logic as when stash_1 checks the cache above.
                 const cache_value = env.cache_map.cache.get(TestTable.key_from_value(stash_value));
-                const map_1_value = env.cache_map.map_1.get(stash_value.*);
-                assert(cache_value != null or map_1_value != null);
+                const stash_1_value = env.cache_map.stash_1.get(stash_value.*);
+                assert(cache_value != null or stash_1_value != null);
             }
         }
 
